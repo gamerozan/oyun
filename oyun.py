@@ -1,86 +1,102 @@
-﻿import tkinter as tk
+import pygame
 import random
 
 # =====================
 # AYARLAR
 # =====================
-PY_COUNT = 100          # SAKIN 30 YAPMA – önce bunu çalıştır
-WIN_W = 260
-WIN_H = 80
-UPDATE_MS = 100
+WIDTH, HEIGHT = 500, 600
+FPS = 60
 
-TEXT = "ÇALIŞIYOR 😎"
-
-# =====================
-# ANA TK
-# =====================
-root = tk.Tk()
-root.title("Kontrol Penceresi")
-root.geometry("300x100")
-
-info = tk.Label(
-    root,
-    text="ESC = ÇIKIŞ\nPencereler hareket ediyor",
-    font=("Arial", 10)
-)
-info.pack(expand=True)
-
-screen_w = root.winfo_screenwidth()
-screen_h = root.winfo_screenheight()
-
-windows = []
+ROAD_COLOR = (50, 50, 50)
+CAR_COLOR = (0, 200, 255)
+ENEMY_COLOR = (255, 50, 50)
+TEXT_COLOR = (255, 255, 255)
 
 # =====================
-# HAREKETLİ PENCERE
+# PYGAME BAŞLAT
 # =====================
-class MovingWindow:
-    def __init__(self):
-        self.win = tk.Toplevel(root)
-        self.win.geometry(f"{WIN_W}x{WIN_H}")
-
-        self.label = tk.Label(
-            self.win,
-            text=TEXT,
-            font=("Arial", 12, "bold"),
-            fg="white"
-        )
-        self.label.pack(expand=True, fill="both")
-
-        self.x = random.randint(0, screen_w - WIN_W)
-        self.y = random.randint(0, screen_h - WIN_H)
-        self.dx = random.choice([-4, 4])
-        self.dy = random.choice([-4, 4])
-
-        self.update()
-
-    def update(self):
-        self.x += self.dx
-        self.y += self.dy
-
-        if self.x <= 0 or self.x >= screen_w - WIN_W:
-            self.dx *= -10
-        if self.y <= 0 or self.y >= screen_h - WIN_H:
-            self.dy *= -10
-
-        color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
-        self.win.configure(bg=color)
-        self.label.configure(bg=color)
-
-        self.win.geometry(f"{WIN_W}x{WIN_H}+{self.x}+{self.y}")
-        self.win.after(UPDATE_MS, self.update)
+pygame.init()
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Araba Oyunu 🚗🔥")
+clock = pygame.time.Clock()
+font = pygame.font.SysFont("Arial", 24)
 
 # =====================
-# ÇIKIŞ
+# OYUNCU
 # =====================
-def quit_all(event=None):
-    root.destroy()
-
-root.bind("<Escape>", quit_all)
+player = pygame.Rect(220, 480, 60, 100)
+player_speed = 6
 
 # =====================
-# BAŞLAT
+# DÜŞMANLAR
 # =====================
-for _ in range(PY_COUNT):
-    windows.append(MovingWindow())
+enemy_count = 4
+enemy_speed = 4
+enemies = []
 
-root.mainloop()
+for _ in range(enemy_count):
+    x = random.randint(50, 390)
+    y = random.randint(-600, -100)
+    enemies.append(pygame.Rect(x, y, 60, 100))
+
+# =====================
+# SKOR
+# =====================
+score = 0
+speed_timer = 0
+
+# =====================
+# ANA OYUN DÖNGÜSÜ
+# =====================
+running = True
+while running:
+    clock.tick(FPS)
+    speed_timer += 1
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT] and player.left > 50:
+        player.x -= player_speed
+    if keys[pygame.K_RIGHT] and player.right < 450:
+        player.x += player_speed
+
+    # -----------------
+    # DÜŞMAN HAREKETİ
+    # -----------------
+    for enemy in enemies:
+        enemy.y += enemy_speed
+        if enemy.y > HEIGHT:
+            enemy.y = random.randint(-200, -100)
+            enemy.x = random.randint(50, 390)
+            score += 1
+
+        if player.colliderect(enemy):
+            running = False
+
+    # -----------------
+    # HIZ ARTIŞI
+    # -----------------
+    if speed_timer > 300:
+        enemy_speed += 0.5
+        speed_timer = 0
+
+    # -----------------
+    # ÇİZİM
+    # -----------------
+    screen.fill((0, 150, 0))  # çimen
+    pygame.draw.rect(screen, ROAD_COLOR, (50, 0, 400, HEIGHT))
+
+    pygame.draw.rect(screen, CAR_COLOR, player)
+    for enemy in enemies:
+        pygame.draw.rect(screen, ENEMY_COLOR, enemy)
+
+    score_text = font.render(f"Skor: {score}", True, TEXT_COLOR)
+    screen.blit(score_text, (10, 10))
+
+    pygame.display.update()
+
+pygame.quit()
+
