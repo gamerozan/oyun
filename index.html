@@ -1,211 +1,161 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8" />
-<title>Multiplayer Car Game</title>
+<meta charset="UTF-8">
+<title>Car Multiplayer</title>
 <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: #f5f7fb;
-    font-family: Arial, Helvetica, sans-serif;
-  }
-
-  canvas {
-    display: block;
-    background: linear-gradient(#eef2ff, #dbeafe);
-  }
-
-  /* FPS */
-  #fps {
-    position: fixed;
-    top: 10px;
-    left: 10px
-    background: rgba(0,0,0,0.6);
-    color: #00ffcc;
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 14px;
-  }
-
-  /* CHAT */
-  #chat {
-    position: fixed;
-    right: 15px;
-    bottom: 15px;
-    width: 280px;
-    height: 220px;
-    background: rgba(255,255,255,0.95);
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  }
-
-  #messages {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-    font-size: 13px;
-  }
-
-  #messages div {
-    margin-bottom: 4px;
-  }
-
-  #chat input {
-    border: none;
-    border-top: 1px solid #ddd;
-    padding: 10px;
-    font-size: 14px;
-    outline: none;
-  }
-
-  .system {
-    color: #22c55e;
-    font-style: italic;
-  }
+body{margin:0;overflow:hidden;background:#f5f7fb;font-family:Arial}
+canvas{display:block}
+#fps{
+  position:fixed;top:10px;left:10px;
+  background:#000;color:#0ff;
+  padding:5px 8px;border-radius:6px;font-size:13px
+}
+#chat{
+  position:fixed;right:15px;bottom:15px;
+  width:260px;height:220px;
+  background:#fff;border-radius:12px;
+  display:flex;flex-direction:column;
+  box-shadow:0 10px 25px rgba(0,0,0,.2)
+}
+#messages{flex:1;padding:8px;overflow:auto;font-size:13px}
+#chat input{border:none;border-top:1px solid #ddd;padding:8px;outline:none}
+.system{color:#16a34a;font-style:italic}
 </style>
 </head>
 <body>
 
-<div id="fps">FPS: 0</div>
+<div id="fps">FPS</div>
 
 <div id="chat">
   <div id="messages"></div>
-  <input id="chatInput" placeholder="Mesaj yaz..." />
+  <input id="input" placeholder="Mesaj yaz...">
 </div>
 
-<canvas id="game"></canvas>
+<canvas id="c"></canvas>
 
 <script>
-/* ===== NICK ===== */
-const username = prompt("Nick seç:", "Player" + Math.floor(Math.random()*1000)) || "Player";
+/* ===== GİRİŞ ===== */
+const name = prompt("Nick:","Player"+Math.floor(Math.random()*1000));
+const room = prompt("Oda şifresi:");
 
-/* ===== CHAT ===== */
-const messages = document.getElementById("messages");
-const chatInput = document.getElementById("chatInput");
-
-function addMessage(text, cls="") {
-  const div = document.createElement("div");
-  div.textContent = text;
-  if (cls) div.className = cls;
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-}
-
-addMessage(`🟢 ${username} oyuna katıldı`, "system");
-
-chatInput.addEventListener("keydown", e => {
-  if (e.key === "Enter" && chatInput.value.trim()) {
-    addMessage(username + ": " + chatInput.value);
-    chatInput.value = "";
-  }
-});
+/* ===== WEBSOCKET (Node YOK) ===== */
+const ws = new WebSocket(
+  "wss://demo.piesocket.com/v3/1?api_key=DEMOKEY&notify_self=1&room=room-"+room
+);
 
 /* ===== CANVAS ===== */
-const canvas = document.getElementById("game");
+const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight}
+resize();onresize=resize;
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+/* ===== CHAT ===== */
+const messages=document.getElementById("messages");
+const input=document.getElementById("input");
+function addMsg(t,cls=""){ 
+  const d=document.createElement("div");
+  d.innerHTML=t;if(cls)d.className=cls;
+  messages.appendChild(d);
+  messages.scrollTop=9999;
 }
-resize();
-window.addEventListener("resize", resize);
 
-/* ===== PLAYER ===== */
-const player = {
-  x: canvas.width / 2,
-  y: canvas.height / 2,
-  speed: 4
-};
-
-const keys = {};
-window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+/* ===== OYUNCULAR ===== */
+let players={};
+let me={x:canvas.width/2,y:canvas.height/2};
 
 /* ===== FPS ===== */
-let last = performance.now();
-let frames = 0;
-let fps = 0;
+let frames=0,last=performance.now();
 
-/* ===== GAME LOOP ===== */
-function loop(now) {
-  frames++;
-  if (now - last >= 1000) {
-    fps = frames;
-    frames = 0;
-    last = now;
-    document.getElementById("fps").textContent = "FPS: " + fps;
+/* ===== SOCKET ===== */
+ws.onopen=()=>{
+  ws.send(JSON.stringify({type:"join",name}));
+  addMsg(`🟢 ${name} odaya katıldı`,"system");
+};
+
+ws.onmessage=e=>{
+  const d=JSON.parse(e.data);
+
+  if(d.type==="join"){
+    players[d.name]={x:d.x,y:d.y};
+    addMsg(`🟢 ${d.name} katıldı`,"system");
   }
 
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
+  if(d.type==="move"){
+    players[d.name]={x:d.x,y:d.y};
+  }
 
-function update() {
-  if (keys["w"] || keys["arrowup"]) player.y -= player.speed;
-  if (keys["s"] || keys["arrowdown"]) player.y += player.speed;
-  if (keys["a"] || keys["arrowleft"]) player.x -= player.speed;
-  if (keys["d"] || keys["arrowright"]) player.x += player.speed;
-}
+  if(d.type==="chat"){
+    addMsg(`<b>${d.name}:</b> ${d.text}`);
+  }
 
-/* ===== DRAW (2.5D) ===== */
-function draw() {
+  if(d.type==="leave"){
+    delete players[d.name];
+    addMsg(`🔴 ${d.name} ayrıldı`,"system");
+  }
+};
+
+/* ===== CHAT GÖNDER ===== */
+input.onkeydown=e=>{
+  if(e.key==="Enter"&&input.value){
+    ws.send(JSON.stringify({type:"chat",name,text:input.value}));
+    input.value="";
+  }
+};
+
+/* ===== KONTROLLER ===== */
+const keys={};
+onkeydown=e=>keys[e.key.toLowerCase()]=true;
+onkeyup=e=>keys[e.key.toLowerCase()]=false;
+
+/* ===== OYUN LOOP ===== */
+function loop(now){
+  frames++;
+  if(now-last>=1000){
+    document.getElementById("fps").textContent="FPS: "+frames;
+    frames=0;last=now;
+  }
+
+  if(keys.w||keys.arrowup)me.y-=3;
+  if(keys.s||keys.arrowdown)me.y+=3;
+  if(keys.a||keys.arrowleft)me.x-=3;
+  if(keys.d||keys.arrowright)me.x+=3;
+
+  ws.send(JSON.stringify({type:"move",name,x:me.x,y:me.y}));
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // zemin grid
-  ctx.strokeStyle = "rgba(0,0,0,0.05)";
-  for (let i=0;i<canvas.width;i+=60){
+  for(const n in players){
+    const p=players[n];
+    const scale=1-(p.y/canvas.height)*0.3;
+
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.scale(scale,scale);
+
+    ctx.fillStyle="rgba(0,0,0,.2)";
     ctx.beginPath();
-    ctx.moveTo(i,0);
-    ctx.lineTo(i,canvas.height);
-    ctx.stroke();
+    ctx.ellipse(0,12,20,7,0,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle="#ff4655";
+    ctx.fillRect(-20,-10,40,20);
+
+    ctx.fillStyle="#111";
+    ctx.textAlign="center";
+    ctx.fillText(n,0,-18);
+
+    ctx.restore();
   }
-  for (let i=0;i<canvas.height;i+=60){
-    ctx.beginPath();
-    ctx.moveTo(0,i);
-    ctx.lineTo(canvas.width,i);
-    ctx.stroke();
-  }
 
-  // perspektif (yukarı çıkınca küçülür)
-  const scale = 1 - (player.y / canvas.height) * 0.3;
-
-  ctx.save();
-  ctx.translate(player.x, player.y);
-  ctx.scale(scale, scale);
-
-  // gölge
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
-  ctx.beginPath();
-  ctx.ellipse(0, 12, 22, 8, 0, 0, Math.PI*2);
-  ctx.fill();
-
-  // araba
-  ctx.fillStyle = "#ff4655"; // Valorant kırmızısı 😏
-  ctx.fillRect(-20, -10, 40, 20);
-
-// oyuncu ismi
-ctx.fillStyle = "#111";
-ctx.font = "12px Arial";
-ctx.textAlign = "center";
-ctx.fillText(username, 0, -18);
-
-
-  ctx.restore();
+  requestAnimationFrame(loop);
 }
-
-requestAnimationFrame(loop);
+loop();
 
 /* ===== ÇIKIŞ ===== */
-window.addEventListener("beforeunload", () => {
-  addMessage(`🔴 ${username} oyundan ayrıldı`);
-});
+onbeforeunload=()=>{
+  ws.send(JSON.stringify({type:"leave",name}));
+};
 </script>
 </body>
 </html>
-
-
