@@ -1,0 +1,50 @@
+body {
+  margin: 0;
+  background: #eaf6ff;
+  font-family: Arial, sans-serif;
+}
+
+#login {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(#eaf6ff, #cce6ff);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+#login input, #login button {
+  margin: 6px;
+  padding: 10px;
+  font-size: 16px;
+}
+
+#game {
+  display: none;
+  background: #a7d8ff;
+}
+
+#chat {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 250px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 8px;
+  display: none;
+  flex-direction: column;
+}
+
+#messages {
+  height: 180px;
+  overflow-y: auto;
+  padding: 5px;
+  font-size: 14px;
+}
+
+#chatInput {
+  border: none;
+  border-top: 1px solid #ccc;
+  padding: 8px;
+}
