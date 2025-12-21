@@ -1,161 +1,26 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
-<title>Car Multiplayer</title>
-<style>
-body{margin:0;overflow:hidden;background:#f5f7fb;font-family:Arial}
-canvas{display:block}
-#fps{
-  position:fixed;top:10px;left:10px;
-  background:#000;color:#0ff;
-  padding:5px 8px;border-radius:6px;font-size:13px
-}
-#chat{
-  position:fixed;right:15px;bottom:15px;
-  width:260px;height:220px;
-  background:#fff;border-radius:12px;
-  display:flex;flex-direction:column;
-  box-shadow:0 10px 25px rgba(0,0,0,.2)
-}
-#messages{flex:1;padding:8px;overflow:auto;font-size:13px}
-#chat input{border:none;border-top:1px solid #ddd;padding:8px;outline:none}
-.system{color:#16a34a;font-style:italic}
-</style>
+  <meta charset="UTF-8">
+  <title>Multiplayer Car Game</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div id="fps">FPS</div>
+<div id="login">
+  <h2>🚗 Multiplayer Car Game</h2>
+  <input id="nick" placeholder="Nick">
+  <input id="room" placeholder="Oda Şifresi">
+  <button onclick="joinGame()">Oyuna Gir</button>
+</div>
+
+<canvas id="game" width="900" height="500"></canvas>
 
 <div id="chat">
   <div id="messages"></div>
-  <input id="input" placeholder="Mesaj yaz...">
+  <input id="chatInput" placeholder="Mesaj yaz..." onkeydown="sendChat(event)">
 </div>
 
-<canvas id="c"></canvas>
-
-<script>
-/* ===== GİRİŞ ===== */
-const name = prompt("Nick:","Player"+Math.floor(Math.random()*1000));
-const room = prompt("Oda şifresi:");
-
-/* ===== WEBSOCKET (Node YOK) ===== */
-const ws = new WebSocket(
-  "wss://demo.piesocket.com/v3/1?api_key=DEMOKEY&notify_self=1&room=room-"+room
-);
-
-/* ===== CANVAS ===== */
-const canvas = document.getElementById("c");
-const ctx = canvas.getContext("2d");
-function resize(){canvas.width=innerWidth;canvas.height=innerHeight}
-resize();onresize=resize;
-
-/* ===== CHAT ===== */
-const messages=document.getElementById("messages");
-const input=document.getElementById("input");
-function addMsg(t,cls=""){ 
-  const d=document.createElement("div");
-  d.innerHTML=t;if(cls)d.className=cls;
-  messages.appendChild(d);
-  messages.scrollTop=9999;
-}
-
-/* ===== OYUNCULAR ===== */
-let players={};
-let me={x:canvas.width/2,y:canvas.height/2};
-
-/* ===== FPS ===== */
-let frames=0,last=performance.now();
-
-/* ===== SOCKET ===== */
-ws.onopen=()=>{
-  ws.send(JSON.stringify({type:"join",name}));
-  addMsg(`🟢 ${name} odaya katıldı`,"system");
-};
-
-ws.onmessage=e=>{
-  const d=JSON.parse(e.data);
-
-  if(d.type==="join"){
-    players[d.name]={x:d.x,y:d.y};
-    addMsg(`🟢 ${d.name} katıldı`,"system");
-  }
-
-  if(d.type==="move"){
-    players[d.name]={x:d.x,y:d.y};
-  }
-
-  if(d.type==="chat"){
-    addMsg(`<b>${d.name}:</b> ${d.text}`);
-  }
-
-  if(d.type==="leave"){
-    delete players[d.name];
-    addMsg(`🔴 ${d.name} ayrıldı`,"system");
-  }
-};
-
-/* ===== CHAT GÖNDER ===== */
-input.onkeydown=e=>{
-  if(e.key==="Enter"&&input.value){
-    ws.send(JSON.stringify({type:"chat",name,text:input.value}));
-    input.value="";
-  }
-};
-
-/* ===== KONTROLLER ===== */
-const keys={};
-onkeydown=e=>keys[e.key.toLowerCase()]=true;
-onkeyup=e=>keys[e.key.toLowerCase()]=false;
-
-/* ===== OYUN LOOP ===== */
-function loop(now){
-  frames++;
-  if(now-last>=1000){
-    document.getElementById("fps").textContent="FPS: "+frames;
-    frames=0;last=now;
-  }
-
-  if(keys.w||keys.arrowup)me.y-=3;
-  if(keys.s||keys.arrowdown)me.y+=3;
-  if(keys.a||keys.arrowleft)me.x-=3;
-  if(keys.d||keys.arrowright)me.x+=3;
-
-  ws.send(JSON.stringify({type:"move",name,x:me.x,y:me.y}));
-
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  for(const n in players){
-    const p=players[n];
-    const scale=1-(p.y/canvas.height)*0.3;
-
-    ctx.save();
-    ctx.translate(p.x,p.y);
-    ctx.scale(scale,scale);
-
-    ctx.fillStyle="rgba(0,0,0,.2)";
-    ctx.beginPath();
-    ctx.ellipse(0,12,20,7,0,0,Math.PI*2);
-    ctx.fill();
-
-    ctx.fillStyle="#ff4655";
-    ctx.fillRect(-20,-10,40,20);
-
-    ctx.fillStyle="#111";
-    ctx.textAlign="center";
-    ctx.fillText(n,0,-18);
-
-    ctx.restore();
-  }
-
-  requestAnimationFrame(loop);
-}
-loop();
-
-/* ===== ÇIKIŞ ===== */
-onbeforeunload=()=>{
-  ws.send(JSON.stringify({type:"leave",name}));
-};
-</script>
+<script src="script.js"></script>
 </body>
 </html>
